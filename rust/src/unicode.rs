@@ -195,3 +195,121 @@ impl fmt::Debug for Nfc {
         debug.fmt(f)
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::Nfc;
+
+    // from the caseless crate
+
+    macro_rules! nfc_caseless {
+        ($input: expr, $expected: expr) => {
+            assert_eq!(Nfc::caseless($input).as_str(), $expected);
+        };
+    }
+
+    #[test]
+    fn caseless() {
+        nfc_caseless!("Test Case", "test case");
+        nfc_caseless!("Teſt Caſe", "test case");
+        nfc_caseless!("spiﬃest", "spiffiest");
+        nfc_caseless!("straße", "strasse");
+    }
+
+    // from http://www.unicode.org/reports/tr15/
+
+    macro_rules! nfc_eq {
+        ($left: expr, $right: expr) => {
+            assert_eq!(Nfc::from_str($left), Nfc::from_str($right));
+        };
+    }
+
+    macro_rules! nfc {
+        ($input: expr, $expected: expr) => {
+            assert_eq!(Nfc::from_str($input).as_str(), $expected);
+        };
+    }
+
+    macro_rules! nfc_add {
+        ($left: expr, $right: expr, $expected: expr) => {
+            assert_eq!((Nfc::from_str($left) + $right).as_str(), $expected);
+        };
+    }
+
+    #[test]
+    fn examples_of_canonical_equivalence() {
+        // Figure 1. Examples of Canonical Equivalence
+        nfc_eq!("\u{00C7}", "\u{0043}\u{0327}");
+        nfc_eq!("\u{0071}\u{0307}\u{0323}", "\u{0071}\u{0323}\u{0307}");
+        nfc_eq!("\u{AC00}", "\u{1100}\u{1161}");
+
+        // NOTE this had U+03A9 GREEK CAPITAL LETTER OMEGA on both sides
+        //      I replaced one with U+2126 OHM SIGN
+        nfc_eq!("\u{03A9}", "\u{2126}");
+    }
+
+    #[test]
+    fn singletons() {
+        // Figure 3. Singletons
+        nfc!("\u{212B}", "\u{00C5}");
+        nfc!("\u{2126}", "\u{03A9}");
+    }
+
+    #[test]
+    fn canonical_composites() {
+        // Figure 4. Canonical Composites
+        nfc!("\u{00C5}", "\u{00C5}");
+        nfc!("\u{00F4}", "\u{00F4}");
+    }
+
+    #[test]
+    fn multiple_combining_marks() {
+        // Figure 5. Multiple Combining Marks
+        nfc!("\u{1E69}", "\u{1E69}");
+        nfc!("\u{1E0B}\u{0323}", "\u{1E0D}\u{0307}");
+        nfc!("\u{0071}\u{0307}\u{0323}", "\u{0071}\u{0323}\u{0307}");
+    }
+
+    #[test]
+    fn string_concatenation() {
+        // Table 2. String Concatenation
+        nfc_add!("\u{0061}", "\u{0302}", "\u{00E2}");
+        nfc_add!("\u{1100}", "\u{1161}\u{11A8}", "\u{AC01}");
+    }
+
+    #[test]
+    fn basic_examples() {
+        // Table 6. Basic Examples
+        nfc!("\u{1E0A}", "\u{1E0A}"); // a: D-dot_above => D-dot_above
+        nfc!("\u{0044}\u{0307}", "\u{1E0A}"); // b: D + dot_above => D-dot_above
+        nfc!("\u{1E0C}\u{0307}", "\u{1E0C}\u{0307}"); // c: D-dot_below + dot_above => D-dot_below + dot_above
+        nfc!("\u{1E0A}\u{0323}", "\u{1E0C}\u{0307}"); // d: D-dot_above + dot_below => D-dot_below + dot_above
+        nfc!("\u{0044}\u{0307}\u{0323}", "\u{1E0C}\u{0307}"); // e: D + dot_above + dot_below => D-dot_below + dot_above
+        nfc!(
+            "\u{0044}\u{0307}\u{031B}\u{0323}",
+            "\u{1E0C}\u{031B}\u{0307}"
+        ); // f: D + dot_above + horn + dot_below => D-dot_below + horn + dot_above
+        nfc!("\u{1E16}", "\u{1E16}"); // f: E-macron-grave => E-macron-grave
+        nfc!("\u{0112}\u{0301}", "\u{1E16}"); // h: E-macron + grave => E-macron-grave
+        nfc!("\u{00C8}\u{0304}", "\u{00C8}\u{0304}"); // i: E-grave + macron => E-grave + macron
+        nfc!("\u{212B}", "\u{00C5}"); // j: angstrom_sign => A-ring
+        nfc!("\u{00C5}", "\u{00C5}"); // k: A-ring => A-ring
+    }
+
+    #[test]
+    fn nfc_applied_to_compatibility_equivalent_string() {
+        // Table 7. NFD and NFC Applied to Compatibility-Equivalent Strings
+        nfc!("Äffin", "Äffin"); // l
+        nfc!("Ä\u{FB03}n", "Ä\u{FB03}n"); // m
+        nfc!("Henry IV", "Henry IV"); // n
+        nfc!("Henry \u{2163}", "Henry \u{2163}"); // o
+        nfc!("\u{30AC}", "\u{30AC}"); // p: ga => ga
+        nfc!("\u{30AB}\u{3099}", "\u{30AC}"); // q: ka + ten => ga
+        nfc!("\u{FF76}\u{FF9E}", "\u{FF76}\u{FF9E}"); // r: hw_ka + hw_ten => hw_ka + hw_ten
+        nfc!("\u{30AB}\u{FF9E}", "\u{30AB}\u{FF9E}"); // s: ka + hw_ten => ka + hw_ten
+        nfc!("\u{FF76}\u{3099}", "\u{FF76}\u{3099}"); // t: hw_ka + ten => hw_ka + ten
+
+        // TODO I don't understand what codepoint this maps to
+        // u: kaks => kaks
+    }
+}
