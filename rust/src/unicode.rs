@@ -309,7 +309,7 @@ mod tests {
         nfc!("\u{30AB}\u{FF9E}", "\u{30AB}\u{FF9E}"); // s: ka + hw_ten => ka + hw_ten
         nfc!("\u{FF76}\u{3099}", "\u{FF76}\u{3099}"); // t: hw_ka + ten => hw_ka + ten
 
-        // TODO I don't understand what codepoint this maps to
-        // u: kaks => kaks
+        // I'm not sure, but this one is probably U+CE8C HANGUL SYLLABLE KAK
+        nfc!("\u{CE8C}", "\u{CE8C}"); // u: kaks => kaks
     }
 }
